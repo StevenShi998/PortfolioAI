@@ -20,7 +20,7 @@ Step-by-step flow: sectors (from DB), risk tolerance, market cap, company exclus
 
 | Sectors | Risk tolerance | Indicator preferences |
 |--------|----------------|------------------------|
-| ![Sectors](pictures/sectors.png) | ![Risk tolerance](pictures/risk_tolerance.png) | ![Indicator preferences](pictures/indicator_pref.png) |
+| <img src="pictures/sectors.png" width="280" alt="Sectors" /> | <img src="pictures/risk_tolerance.png" width="280" alt="Risk tolerance" /> | <img src="pictures/indicator_pref.png" width="280" alt="Indicator preferences" /> |
 
 ### Portfolio recommendation
 
@@ -46,6 +46,31 @@ Past recommendations with preference snapshots and model-run dates. Click a row 
 
 ![Workflow overview](pictures/pic/workflow.png)
 
+### Logic behind the scenes
+
+The pipeline has three stages: predict returns and volatilities, optimize weights, then backtest.
+
+![Logic behind the scenes](pictures/pic/logic_stages.png)
+
+**Stage 1: Return and Volatility Prediction (Variational LSTM)**  
+Learn a distribution of future returns \(p(\text{return} \mid \text{sequence})\) using a Variational LSTM.
+
+- **Given:** Historical sequences of features (price, volume, technical indicators) for each asset over LOOKBACK = 66 days.
+- **Predict:** Mean return \(\hat{\mu}\) and variance \(\hat{\sigma}^2\) over FORECAST HORIZON = 21 days.
+- **Method:** Variational LSTM minimizing a time-weighted loss (time-weighted NLL + KL latent regularization + direction penalty). NLL rewards accurate predictions with appropriate uncertainty; KL keeps the latent space close to the prior; direction loss penalizes sign mismatches between predicted and actual returns.
+
+**Stage 2: Portfolio Allocation (Return–Drawdown Optimizer)**  
+Optimize portfolio weights \(w \in \mathbb{R}^n\) to maximize return/drawdown(proxy) ratio.
+
+- **Given:** Predicted returns \(\hat{\mu}\) and volatilities \(\hat{\sigma}\) from Stage 1.
+- **Find:** Weights \(w\) that solve \(\min_w -\text{ratio}(w)\) subject to \(\sum w_j = 1\), \(0 \le w_j \le 1\).
+- **Ratio:** When \(\mu_p > 0\), ratio = \(\mu_p/\text{MDD} + \alpha\mu_p\); otherwise scaled by \(\mu_p\), FORECAST HORIZON, and MDD. Portfolio return \(\mu_p = w^T\hat{\mu}\); volatility \(\sigma_p = \sqrt{w^T \hat{H} w}\); max-drawdown proxy \(\text{MDD} = \max(10^{-4}, 2\sqrt{\text{HORIZON}}\cdot\sigma_p)\). Covariance \(\hat{H} = D\,\Sigma_{\text{corr}}\,D\) with \(D = \text{diag}(\hat{\sigma}_1, \ldots, \hat{\sigma}_n)\). Method: SLSQP (long-only, fully invested).
+
+**Stage 3: Backtest (Monthly Rebalance)**  
+Apply optimized weights to actual returns and compound capital. Performance measured via Sharpe ratio and cumulative returns.
+
+- **Sharpe:** \(S = \sqrt{252} \cdot (\bar{R}_p - R_f) / \sigma_p\), with \(R_p\) portfolio return, \(R_f\) risk-free rate, \(\sigma_p\) standard deviation of excess returns.
+
 ---
 
 ## Project management and versioning
@@ -60,29 +85,16 @@ This reflects how the project was run (planning, versions, handoff) as project-m
 
 ---
 
-## Quick Start
-
-```bash
-# 1. Clone / navigate to this folder
-cd Production
-
-# 2. Launch all services (PostgreSQL, Redis, backend, frontend)
-docker compose up --build
-
-# 3. Open the app
-open http://localhost:3000
-```
-
-The backend API is available at `http://localhost:8000` (Swagger docs at `/docs`).
+**Note:** I'm working on model tuning for live interaction. This repo is a portfolio showcase and is not set up for local run.
 
 ## Architecture
 
-| Service   | Port | Description                         |
-|-----------|------|-------------------------------------|
-| frontend  | 3000 | Next.js React app (Tailwind CSS)    |
-| backend   | 8000 | FastAPI Python API + ML engine      |
-| postgres  | 5432 | PostgreSQL 16 database              |
-| redis     | 6379 | Redis cache                         |
+| Service   | Description                         |
+|-----------|-------------------------------------|
+| frontend  | Next.js React app (Tailwind CSS)    |
+| backend   | FastAPI Python API + ML engine      |
+| postgres  | PostgreSQL 16 database              |
+| redis     | Redis cache                         |
 
 ## Local Development (without Docker)
 
