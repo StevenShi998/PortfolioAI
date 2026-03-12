@@ -14,13 +14,13 @@ Sign up, sign in, and session handling. User and preferences are stored in Postg
 
 ![Account and database](pictures/account_databaselinked.png)
 
-### Preference selection (wizard)
+### Preference selection
 
-Step-by-step flow: sectors (from DB), risk tolerance, market cap, company exclusions, and indicator preferences (momentum, low volatility, value).
+Step-by-step user preferences: sectors, risk tolerance, market cap, company exclusions, and indicator preferences (momentum, low volatility, value).
 
 | Sectors | Risk tolerance | Indicator preferences |
 |--------|----------------|------------------------|
-| <img src="pictures/sectors.png" width="280" alt="Sectors" /> | <img src="pictures/risk_tolerance.png" width="280" alt="Risk tolerance" /> | <img src="pictures/indicator_pref.png" width="280" alt="Indicator preferences" /> |
+| <img src="pictures/sectors.png" width="280" height="380" alt="Sectors" /> | <img src="pictures/risk_tolerance.png" width="280" height="380" alt="Risk tolerance" /> | <img src="pictures/indicator_pref.png" width="280" height="380" alt="Indicator preferences" /> |
 
 ### Portfolio recommendation
 
@@ -36,40 +36,59 @@ Past recommendations with preference snapshots and model-run dates. Click a row 
 
 ---
 
-## Under the hood
+## Model architecture
 
-**Stack:** Python (FastAPI), PostgreSQL 16, Redis, Next.js (React, Tailwind). ML pipeline: Variational LSTM for return/volatility forecasts, return–drawdown optimizer (SLSQP), and walk-forward backtest.
+### Stage 1: Return and Volatility Prediction (Variational LSTM)
 
-**Data and API:** Stock metadata and price series live in Postgres. REST API covers auth, user preferences, sectors (from DB), and recommendations. Preferences and recommendation history are persisted and tied to model-run metadata.
+Learn a distribution of future returns $p(return | sequence)$ using a Variational LSTM.
 
-**Full technical derivation and workflow** (model loss, optimizer formulation, backtest formulas): see **[notebook/README.md](notebook/README.md)**.
+- **Given:** Historical sequences of features (price, volume, technical indicators) for each asset over $\texttt{LOOKBACK} = 66$ days
+- **Predict:** Mean return $\hat{\mu}$ and variance $\hat{\sigma}^2$ over $\texttt{FORECAST HORIZON} = 21$ days
+- **Method:** Variational LSTM minimizing a time-weighted loss:
 
-![Workflow overview](pictures/pic/workflow.png)
+$$\mathcal{L} = \underbrace{\frac{1}{N}\sum_i w_i \cdot \text{NLL}_i}_{\text{time-weighted prediction}} + \underbrace{\beta \cdot \text{KL}(q(z|x) \| p(z))}_{\text{latent regularization}} + \underbrace{0.5 \cdot \text{direction penalty}}_{\text{sign mismatch}}$$
 
-### Logic behind the scenes
+Where:
+- **NLL** (Gaussian negative log-likelihood): rewards accurate predictions with appropriate uncertainty
+- **KL divergence**: regularizes latent space to stay close to prior N(0,I)
+- **Direction loss**: penalizes sign mismatches between predicted and actual returns
 
-The pipeline has three stages: predict returns and volatilities, optimize weights, then backtest.
+### Stage 2: Portfolio Allocation (Return-Drawdown Optimizer)
 
-![Logic behind the scenes](pictures/pic/logic_stages.png)
+Optimize portfolio weights $w \in \mathbb{R}^n$ to maximize return/drawdown(proxy) ratio.
 
-**Stage 1: Return and Volatility Prediction (Variational LSTM)**  
-Learn a distribution of future returns \(p(\text{return} \mid \text{sequence})\) using a Variational LSTM.
+- **Given:** Predicted returns $\hat{\mu}$ and volatilities $\hat{\sigma}$ from Stage 1
+- **Find:** Weights $w$ that solve:
 
-- **Given:** Historical sequences of features (price, volume, technical indicators) for each asset over LOOKBACK = 66 days.
-- **Predict:** Mean return \(\hat{\mu}\) and variance \(\hat{\sigma}^2\) over FORECAST HORIZON = 21 days.
-- **Method:** Variational LSTM minimizing a time-weighted loss (time-weighted NLL + KL latent regularization + direction penalty). NLL rewards accurate predictions with appropriate uncertainty; KL keeps the latent space close to the prior; direction loss penalizes sign mismatches between predicted and actual returns.
+$$\min_w \; -\text{ratio}(w)$$
 
-**Stage 2: Portfolio Allocation (Return–Drawdown Optimizer)**  
-Optimize portfolio weights \(w \in \mathbb{R}^n\) to maximize return/drawdown(proxy) ratio.
+$$\text{subject to} \quad \sum_{j=1}^{n} w_j = 1, \quad 0 \leq w_j \leq 1$$
 
-- **Given:** Predicted returns \(\hat{\mu}\) and volatilities \(\hat{\sigma}\) from Stage 1.
-- **Find:** Weights \(w\) that solve \(\min_w -\text{ratio}(w)\) subject to \(\sum w_j = 1\), \(0 \le w_j \le 1\).
-- **Ratio:** When \(\mu_p > 0\), ratio = \(\mu_p/\text{MDD} + \alpha\mu_p\); otherwise scaled by \(\mu_p\), FORECAST HORIZON, and MDD. Portfolio return \(\mu_p = w^T\hat{\mu}\); volatility \(\sigma_p = \sqrt{w^T \hat{H} w}\); max-drawdown proxy \(\text{MDD} = \max(10^{-4}, 2\sqrt{\text{HORIZON}}\cdot\sigma_p)\). Covariance \(\hat{H} = D\,\Sigma_{\text{corr}}\,D\) with \(D = \text{diag}(\hat{\sigma}_1, \ldots, \hat{\sigma}_n)\). Method: SLSQP (long-only, fully invested).
+Where:
 
-**Stage 3: Backtest (Monthly Rebalance)**  
-Apply optimized weights to actual returns and compound capital. Performance measured via Sharpe ratio and cumulative returns.
+$$\text{ratio} = \begin{cases}
+\frac{\mu_p}{\text{MDD}} + \alpha \mu_p & \text{if } \mu_p > 0 \\
+\mu_p \cdot \sqrt{\texttt{FORECAST HORIZON}} \cdot \text{MDD} & \text{if } \mu_p \leq 0
+\end{cases}$$
 
-- **Sharpe:** \(S = \sqrt{252} \cdot (\bar{R}_p - R_f) / \sigma_p\), with \(R_p\) portfolio return, \(R_f\) risk-free rate, \(\sigma_p\) standard deviation of excess returns.
+- **Portfolio return:** $\mu_p = w^T \hat{\mu}$; this is the weighted sum of predicted returns for each asset
+- **Portfolio volatility:** $\sigma_p = \sqrt{w^T \hat{H} w}$
+- **Max-drawdown proxy:** $\text{MDD} = \max(10^{-4}, 2\sqrt{\texttt{FORECAST HORIZON}}\cdot\sigma_p)$; $10^{-4}$ is a small constant to handle the case when $\sigma_p \approx 0$
+- **Covariance:** $\hat{H} = D\cdot\Sigma_{\text{corr}}\cdot D$ where $D = \text{diag}(\hat{\sigma}_1, \ldots, \hat{\sigma}_n)$
+- **Method:** SLSQP optimizer (long-only, fully invested)
+
+### Stage 3: Backtest (Monthly Rebalance)
+
+Monthly rebalance backtest applies optimized weights (from Stage 2) to actual returns and compounds capital. Performance measured via Sharpe ratio and cumulative returns. 
+
+For the Sharpe ratio, we use the following formula:
+$$S = \alpha \cdot \frac{\mathbb{E}[R_p - R_f]}{\sigma_p} = \sqrt{252} \cdot \frac{\bar{R}_p - R_f}{\sigma_p}$$
+
+where:
+- $R_p$: portfolio return
+- $R_f$: risk-free rate
+- $\sigma_p$: standard deviation of portfolio (excess) returns
+- $\alpha = \sqrt{252}$: annualization factor
 
 ---
 
