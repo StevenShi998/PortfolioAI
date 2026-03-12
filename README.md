@@ -18,11 +18,11 @@ User select from DB-backed list, risk tolerance, market cap, company exclusions,
 
 | Login page | Sectors |
 |------------|---------|
-| <img src="pictures/account_databaselinked.png" alt="Login page" style="width:300px;height:300px;object-fit:cover;display:block" /> | <img src="pictures/sectors.png" alt="Sectors" style="width:300px;height:300px;object-fit:cover;display:block" /> |
+| <img src="pictures/account_databaselinked.png" alt="Login page" style="width:500px;height:500px;object-fit:cover;display:block" /> | <img src="pictures/sectors.png" alt="Sectors" style="width:500px;height:500px;object-fit:cover;display:block" /> |
 
 | Risk tolerance | Indicator preferences |
 |----------------|-----------------------|
-| <img src="pictures/risk_tolerance.png" alt="Risk tolerance" style="width:300px;height:300px;object-fit:cover;display:block" /> | <img src="pictures/indicator_pref.png" alt="Indicator preferences" style="width:300px;height:300px;object-fit:cover;display:block" /> |
+| <img src="pictures/risk_tolerance.png" alt="Risk tolerance" style="width:500px;height:500px;object-fit:cover;display:block" /> | <img src="pictures/indicator_pref.png" alt="Indicator preferences" style="width:500px;height:500px;object-fit:cover;display:block" /> |
 
 ### Portfolio recommendation
 
