@@ -16,8 +16,11 @@ Sign up, sign in, and session handling. User and preferences are stored in Postg
 
 User select from DB-backed list, risk tolerance, market cap, company exclusions, and indicator preferences (momentum, low volatility, value).
 
-| Login page | Sectors | Risk tolerance | Indicator preferences |
-| <img src="pictures/account_databaselinked.png" alt="Login page" style="width:260px;height:360px;object-fit:cover;display:block" /> | <img src="pictures/sectors.png" alt="Sectors" style="width:260px;height:360px;object-fit:cover;display:block" /> | <img src="pictures/risk_tolerance.png" alt="Risk tolerance" style="width:260px;height:360px;object-fit:cover;display:block" /> | <img src="pictures/indicator_pref.png" alt="Indicator preferences" style="width:260px;height:360px;object-fit:cover;display:block" /> |
+| Login page | Sectors |
+|------------|---------|
+| <img src="pictures/account_databaselinked.png" alt="Login page" style="width:260px;height:300px;object-fit:cover;display:block" /> | <img src="pictures/sectors.png" alt="Sectors" style="width:260px;height:300px;object-fit:cover;display:block" /> |
+| Risk tolerance | Indicator preferences |
+| <img src="pictures/risk_tolerance.png" alt="Risk tolerance" style="width:260px;height:300px;object-fit:cover;display:block" /> | <img src="pictures/indicator_pref.png" alt="Indicator preferences" style="width:260px;height:300px;object-fit:cover;display:block" /> |
 
 ### Portfolio recommendation
 
