@@ -1,26 +1,24 @@
 # Dynamic Portfolio Optimization — Production
 
-Portfolio project: an AI-powered stock recommendation web app with backtested allocations and plain-English explanations. Built with Cursor assistance.
+An ML stock recommendation web app with backtested allocations and plain-English explanations. Based on my Dynamic Portfolio Optimization notebook.
 
 ---
 
 ## Website functionalities
 
-### User account and auth
+### Account, register, and preference selection
 
-Sign up, sign in, and session handling. User and preferences are stored in PostgreSQL.
+Sign up, sign in, and session handling. User and preferences are stored in PostgreSQL. After logging in, users set preferences in a step-by-step wizard.
 
 ![Landing and auth](pictures/frontpage.png)
 
 ![Account and database](pictures/account_databaselinked.png)
 
-### Preference selection
+**Preference wizard:** sectors (user input from DB-backed list), risk tolerance, market cap, company exclusions, and indicator preferences (momentum, low volatility, value).
 
-Step-by-step user preferences: sectors, risk tolerance, market cap, company exclusions, and indicator preferences (momentum, low volatility, value).
-
-| Sectors | Risk tolerance | Indicator preferences |
-|--------|----------------|------------------------|
-| <img src="pictures/sectors.png" width="280" height="380" alt="Sectors" /> | <img src="pictures/risk_tolerance.png" width="280" height="380" alt="Risk tolerance" /> | <img src="pictures/indicator_pref.png" width="280" height="380" alt="Indicator preferences" /> |
+| Sectors (user input) | Risk tolerance | Indicator preferences |
+|----------------------|----------------|------------------------|
+| <img src="pictures/sectors.png" alt="Sectors" style="width:260px;height:360px;object-fit:cover;display:block" /> | <img src="pictures/risk_tolerance.png" alt="Risk tolerance" style="width:260px;height:360px;object-fit:cover;display:block" /> | <img src="pictures/indicator_pref.png" alt="Indicator preferences" style="width:260px;height:360px;object-fit:cover;display:block" /> |
 
 ### Portfolio recommendation
 
